@@ -161,9 +161,9 @@ func WebhookMercadoPago(c *gin.Context) {
 	webhookURL := os.Getenv("WEBHOOK_DESTINO_URL") // defina essa variável no .env
 
 	payload := map[string]interface{}{
-		"user_id": pagamento.USER_ID,
-		"status":  "pago",
-		"ID":      pagamento.ID_Budget,
+		"user_id":   pagamento.USER_ID,
+		"status":    "pago",
+		"budget_id": pagamento.ID_Budget,
 	}
 
 	jsonPayload, _ := json.Marshal(payload)
