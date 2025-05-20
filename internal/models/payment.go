@@ -1,12 +1,21 @@
 package models
 
-import "gorm.io/gorm"
+import (
+	"github.com/google/uuid"
+	"gorm.io/gorm"
+)
 
 type Payment struct {
-	gorm.Model
-	Titulo       string  `json:"titulo"`
-	Valor        float64 `json:"valor"`
-	Status       string  `json:"status"` // pending, paid, failed
-	InitPoint    string  `json:"init_point"`
-	PreferenceID string  `json:"preference_id"`
+	ID           uuid.UUID `json:"id" gorm:"type:uuid;primaryKey"`
+	Titulo       string    `json:"titulo"`
+	Valor        float64   `json:"valor"`
+	Status       string    `json:"status"`
+	InitPoint    string    `json:"init_point"`
+	PreferenceID string    `json:"preference_id"`
+}
+
+// Gera UUID automaticamente antes de salvar
+func (p *Payment) BeforeCreate(tx *gorm.DB) (err error) {
+	p.ID = uuid.New()
+	return
 }

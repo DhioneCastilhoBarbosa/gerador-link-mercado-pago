@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 
@@ -76,41 +77,66 @@ func CriarPagamento(c *gin.Context) {
 }
 
 func WebhookMercadoPago(c *gin.Context) {
-	idPagamento := c.Query("id")
-	if idPagamento == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "ID do pagamento não informado"})
+	topic := c.Query("topic")
+	if topic == "" {
+		topic = c.Query("type")
+	}
+
+	id := c.Query("id")
+	if id == "" {
+		id = c.Query("data.id")
+	}
+
+	if topic != "payment" || id == "" {
+		log.Printf("🔔 Webhook ignorado: topic=%s, id=%s\n", topic, id)
+		c.JSON(http.StatusOK, gin.H{"message": "Notificação ignorada"})
 		return
 	}
 
+	log.Printf("✅ Webhook recebido: topic=%s, id=%s\n", topic, id)
+
 	token := os.Getenv("MERCADO_PAGO_ACCESS_TOKEN")
-	url := fmt.Sprintf("https://api.mercadopago.com/v1/payments/%s?access_token=%s", idPagamento, token)
+	url := fmt.Sprintf("https://api.mercadopago.com/v1/payments/%s?access_token=%s", id, token)
 
 	resp, err := http.Get(url)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao consultar pagamento"})
+		log.Println("❌ Erro ao consultar pagamento:", err)
+		c.JSON(http.StatusOK, gin.H{"message": "Erro na consulta, mas webhook aceito para não gerar retry em loop"})
 		return
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+	log.Printf("📦 Resposta completa do pagamento:\n%s\n", string(body))
 
-	var pagamentoMP struct {
-		Status       string `json:"status"`
-		PreferenceID string `json:"order"`
-	}
-
-	_ = json.Unmarshal(body, &pagamentoMP)
-
-	if pagamentoMP.PreferenceID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Pagamento não encontrado"})
+	var raw map[string]interface{}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		log.Println("❌ Erro ao decodificar JSON da resposta:", err)
+		c.JSON(http.StatusOK, gin.H{"message": "Erro na decodificação"})
 		return
 	}
 
-	var pagamento models.Payment
-	if err := database.DB.Where("preference_id = ?", pagamentoMP.PreferenceID).First(&pagamento).Error; err == nil {
-		pagamento.Status = pagamentoMP.Status
-		database.DB.Save(&pagamento)
+	// Extrai dados com segurança
+	preferenceID, _ := raw["preference_id"].(string)
+	status, _ := raw["status"].(string)
+
+	if preferenceID == "" || status == "" {
+		log.Println("⚠️ Dados de pagamento incompletos na resposta do Mercado Pago")
+		c.JSON(http.StatusOK, gin.H{"message": "Pagamento sem dados suficientes"})
+		return
 	}
 
+	// Atualiza no banco
+	var pagamento models.Payment
+	if err := database.DB.Where("preference_id = ?", preferenceID).First(&pagamento).Error; err != nil {
+		log.Printf("❌ Pagamento não encontrado no banco: preference_id=%s", preferenceID)
+		c.JSON(http.StatusOK, gin.H{"message": "Pagamento não encontrado, mas notificação recebida"})
+		return
+	}
+
+	pagamento.Status = status
+	database.DB.Save(&pagamento)
+
+	log.Printf("✅ Pagamento atualizado: %s → %s", preferenceID, status)
 	c.Status(http.StatusOK)
 }
