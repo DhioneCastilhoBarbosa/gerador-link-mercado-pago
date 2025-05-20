@@ -11,4 +11,5 @@ type Payment struct {
 	Status       string    `json:"status"`
 	InitPoint    string    `json:"init_point"`
 	PreferenceID string    `json:"preference_id"`
+	USER_ID      string    `json:"user_id"`
 }

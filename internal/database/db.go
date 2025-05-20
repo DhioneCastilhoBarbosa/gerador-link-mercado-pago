@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/DhioneCastilhoBarbosa/mercado-pago-api-link/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -20,7 +19,8 @@ func Connect() {
 		log.Fatal("Erro ao conectar no banco de dados:", err)
 	}
 
-	if err := DB.AutoMigrate(&models.Payment{}); err != nil {
-		log.Fatal("Erro ao realizar migração:", err)
+	// Executa migrações com versionamento
+	if err := RunMigrations(DB); err != nil {
+		log.Fatal("Erro ao rodar migrações:", err)
 	}
 }

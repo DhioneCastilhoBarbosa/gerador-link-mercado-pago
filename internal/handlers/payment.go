@@ -16,8 +16,11 @@ import (
 )
 
 type PagamentoRequest struct {
-	Titulo string  `json:"titulo"`
-	Valor  float64 `json:"valor"`
+	Titulo   string  `json:"titulo"`
+	Valor    float64 `json:"valor"`
+	Name     string  `json:"name"`
+	Lastname string  `json:"lastname"`
+	User_id  string  `json:"user_id"`
 }
 
 func CriarPagamento(c *gin.Context) {
@@ -33,10 +36,17 @@ func CriarPagamento(c *gin.Context) {
 	preference := map[string]interface{}{
 		"items": []map[string]interface{}{
 			{
-				"title":      req.Titulo,
-				"quantity":   1,
-				"unit_price": req.Valor,
+				"id":          "EH-SERV-001",
+				"title":       req.Titulo,
+				"description": "Instalação de carregador",
+				"category_id": "services",
+				"quantity":    1,
+				"unit_price":  req.Valor,
 			},
+		},
+		"payer": map[string]interface{}{
+			"first_name": req.Name,
+			"last_name":  req.Lastname,
 		},
 		"external_reference": id.String(),
 		"back_urls": map[string]string{
@@ -76,6 +86,7 @@ func CriarPagamento(c *gin.Context) {
 		Status:       "pending",
 		InitPoint:    initPoint,
 		PreferenceID: preferenceID,
+		USER_ID:      req.User_id,
 	}
 	database.DB.Create(&p)
 
