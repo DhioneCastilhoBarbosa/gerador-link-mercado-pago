@@ -154,4 +154,30 @@ func WebhookMercadoPago(c *gin.Context) {
 
 	log.Printf("✅ Pagamento atualizado: %s → %s", pagamento.ID.String(), status)
 	c.Status(http.StatusOK)
+
+	// Envia webhook para outro serviço
+	webhookURL := os.Getenv("WEBHOOK_DESTINO_URL") // defina essa variável no .env
+
+	payload := map[string]interface{}{
+		"user_id": pagamento.USER_ID,
+		"status":  "pago",
+	}
+
+	jsonPayload, _ := json.Marshal(payload)
+
+	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		log.Println("❌ Erro ao criar request para webhook externo:", err)
+	} else {
+		req.Header.Set("Content-Type", "application/json")
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Println("❌ Erro ao enviar webhook externo:", err)
+		} else {
+			defer resp.Body.Close()
+			log.Printf("📤 Webhook externo enviado: %s (%d)", webhookURL, resp.StatusCode)
+		}
+	}
+
 }
