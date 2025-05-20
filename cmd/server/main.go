@@ -16,7 +16,7 @@ func main() {
 
 	database.Connect()
 	r := routes.SetupRouter()
-	if err := r.Run(":8088"); err != nil {
+	if err := r.Run(":8090"); err != nil {
 		log.Fatal("Erro ao iniciar servidor:", err)
 	}
 }
