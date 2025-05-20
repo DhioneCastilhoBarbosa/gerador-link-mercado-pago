@@ -12,6 +12,7 @@ import (
 	"github.com/DhioneCastilhoBarbosa/mercado-pago-api-link/internal/database"
 	"github.com/DhioneCastilhoBarbosa/mercado-pago-api-link/internal/models"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type PagamentoRequest struct {
@@ -26,6 +27,9 @@ func CriarPagamento(c *gin.Context) {
 		return
 	}
 
+	// Gera UUID para servir como ID e external_reference
+	id := uuid.New()
+
 	preference := map[string]interface{}{
 		"items": []map[string]interface{}{
 			{
@@ -34,6 +38,7 @@ func CriarPagamento(c *gin.Context) {
 				"unit_price": req.Valor,
 			},
 		},
+		"external_reference": id.String(),
 		"back_urls": map[string]string{
 			"success": "https://www.eletrihub.com/",
 			"failure": "https://sua-url.com/erro",
@@ -61,10 +66,11 @@ func CriarPagamento(c *gin.Context) {
 	var respJson map[string]interface{}
 	json.Unmarshal(respBody, &respJson)
 
-	initPoint := respJson["init_point"].(string)
-	preferenceID := respJson["id"].(string)
+	initPoint, _ := respJson["init_point"].(string)
+	preferenceID, _ := respJson["id"].(string)
 
 	p := models.Payment{
+		ID:           id,
 		Titulo:       req.Titulo,
 		Valor:        req.Valor,
 		Status:       "pending",
@@ -101,7 +107,7 @@ func WebhookMercadoPago(c *gin.Context) {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Println("❌ Erro ao consultar pagamento:", err)
-		c.JSON(http.StatusOK, gin.H{"message": "Erro na consulta, mas webhook aceito para não gerar retry em loop"})
+		c.JSON(http.StatusOK, gin.H{"message": "Erro na consulta"})
 		return
 	}
 	defer resp.Body.Close()
@@ -116,27 +122,25 @@ func WebhookMercadoPago(c *gin.Context) {
 		return
 	}
 
-	// Extrai dados com segurança
-	preferenceID, _ := raw["preference_id"].(string)
+	externalRef, _ := raw["external_reference"].(string)
 	status, _ := raw["status"].(string)
 
-	if preferenceID == "" || status == "" {
-		log.Println("⚠️ Dados de pagamento incompletos na resposta do Mercado Pago")
-		c.JSON(http.StatusOK, gin.H{"message": "Pagamento sem dados suficientes"})
+	if externalRef == "" || status == "" {
+		log.Println("⚠️ external_reference ou status ausente na resposta")
+		c.JSON(http.StatusOK, gin.H{"message": "Dados incompletos"})
 		return
 	}
 
-	// Atualiza no banco
 	var pagamento models.Payment
-	if err := database.DB.Where("preference_id = ?", preferenceID).First(&pagamento).Error; err != nil {
-		log.Printf("❌ Pagamento não encontrado no banco: preference_id=%s", preferenceID)
-		c.JSON(http.StatusOK, gin.H{"message": "Pagamento não encontrado, mas notificação recebida"})
+	if err := database.DB.Where("id = ?", externalRef).First(&pagamento).Error; err != nil {
+		log.Printf("❌ Pagamento com ID %s não encontrado", externalRef)
+		c.JSON(http.StatusOK, gin.H{"message": "Pagamento não encontrado"})
 		return
 	}
 
 	pagamento.Status = status
 	database.DB.Save(&pagamento)
 
-	log.Printf("✅ Pagamento atualizado: %s → %s", preferenceID, status)
+	log.Printf("✅ Pagamento atualizado: %s → %s", pagamento.ID.String(), status)
 	c.Status(http.StatusOK)
 }

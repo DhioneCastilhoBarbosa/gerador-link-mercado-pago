@@ -14,7 +14,7 @@ type Payment struct {
 	PreferenceID string    `json:"preference_id"`
 }
 
-// Gera UUID automaticamente antes de salvar
+// BeforeCreate gera UUID automaticamente
 func (p *Payment) BeforeCreate(tx *gorm.DB) (err error) {
 	p.ID = uuid.New()
 	return
