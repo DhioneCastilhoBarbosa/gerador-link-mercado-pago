@@ -16,11 +16,12 @@ import (
 )
 
 type PagamentoRequest struct {
-	Titulo   string  `json:"titulo"`
-	Valor    float64 `json:"valor"`
-	Name     string  `json:"name"`
-	Lastname string  `json:"lastname"`
-	User_id  string  `json:"user_id"`
+	Titulo    string  `json:"titulo"`
+	Valor     float64 `json:"valor"`
+	Name      string  `json:"name"`
+	Lastname  string  `json:"lastname"`
+	User_id   string  `json:"user_id"`
+	Id_Budget string  `json:"id_budget"`
 }
 
 func CriarPagamento(c *gin.Context) {
@@ -87,6 +88,7 @@ func CriarPagamento(c *gin.Context) {
 		InitPoint:    initPoint,
 		PreferenceID: preferenceID,
 		USER_ID:      req.User_id,
+		ID_Budget:    req.Id_Budget,
 	}
 	database.DB.Create(&p)
 
@@ -161,6 +163,7 @@ func WebhookMercadoPago(c *gin.Context) {
 	payload := map[string]interface{}{
 		"user_id": pagamento.USER_ID,
 		"status":  "pago",
+		"ID":      pagamento.ID_Budget,
 	}
 
 	jsonPayload, _ := json.Marshal(payload)

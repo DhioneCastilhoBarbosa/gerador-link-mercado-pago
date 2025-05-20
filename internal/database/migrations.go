@@ -17,6 +17,16 @@ func RunMigrations(db *gorm.DB) error {
 				return tx.Migrator().DropTable("payments")
 			},
 		},
+		{
+			ID: "20240520_add_id_budget_column",
+			Migrate: func(tx *gorm.DB) error {
+				return tx.AutoMigrate(&models.Payment{})
+			},
+			Rollback: func(tx *gorm.DB) error {
+				return tx.Migrator().DropTable("payments")
+			},
+		},
+
 		// Aqui você pode adicionar outras migrações no futuro
 	})
 

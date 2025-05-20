@@ -12,4 +12,5 @@ type Payment struct {
 	InitPoint    string    `json:"init_point"`
 	PreferenceID string    `json:"preference_id"`
 	USER_ID      string    `json:"user_id"`
+	ID_Budget    string    `json:"id_budget"`
 }
